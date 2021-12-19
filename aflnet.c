@@ -11,6 +11,47 @@
 #include "alloc-inl.h"
 #include "aflnet.h"
 
+//added functions for assigning empty header
+void emptyHeader(header* curHeader)
+{
+	curHeader->hStart = 0;
+	curHeader->hEnd = 0;
+}
+
+//added functions for assigning empty query
+void emptyQuery(query* curQuery)
+{
+	curQuery->qStart = 0;
+	curQuery->qEnd = 0;
+	curQuery->qLength = 0;
+}
+
+
+//added functions for extracting header and query
+void populateHeader(header* curHeader, unsigned int packStart)
+{
+	curHeader->hStart = packStart;
+	curHeader->hEnd = packStart + 11;
+	curHeader->fuzzed = 0;
+	curHeader->id = packStart;
+	curHeader->shortFields = packStart + 2;
+	curHeader->qdCount = packStart + 4;
+	curHeader->anCount = packStart + 6;
+	curHeader->nsCount = packStart + 8;
+	curHeader->arCount = packStart + 10;
+}
+
+void populateQuery(query* curQuery, unsigned int queryStart, unsigned int qNameLength)
+{
+	curQuery->qStart = queryStart;
+	curQuery->qEnd = queryStart + qNameLength + 3;
+	curQuery->qLength = qNameLength + 4;
+	curQuery->fuzzed = 0;
+	curQuery->qName = 0;
+	curQuery->qType = qNameLength;
+	curQuery->qClass = qNameLength + 2;
+}
+
 // Protocol-specific functions for extracting requests and responses
 
 region_t* extract_requests_smtp(unsigned char* buf, unsigned int buf_size, unsigned int* region_count_ref)
@@ -382,12 +423,25 @@ region_t* extract_requests_dns(unsigned char* buf, unsigned int buf_size, unsign
 
     // A DNS header is 12 bytes long & the 1st null byte after that indicates the end of the query.
     if ((mem_count >= 12) && (*(mem+mem_count) == 0)) {
-      // 4 bytes left of the tail.
+      
+	  //moved: region assignment so header can be assigned
+	  
+	  region_count++;
+      regions = (region_t *)ck_realloc(regions, region_count * sizeof(region_t));
+	  regions[region_count - 1].start_byte = cur_start;
+	  
+	  //added populate header
+	  populateHeader((&regions[region_count - 1].r_header), 0);
+	  
+	  //added populate query
+	  int queryStart = cur_start + 12;
+      	  int qNameLength = mem_count - 12;
+	 populateQuery(&(regions[region_count - 1].r_question), queryStart, qNameLength);
+	  
+	  // 4 bytes left of the tail.
       cur_end += 4;
       byte_count += 4;
-      region_count++;
-      regions = (region_t *)ck_realloc(regions, region_count * sizeof(region_t));
-      regions[region_count - 1].start_byte = cur_start;
+	  
       regions[region_count - 1].end_byte = cur_end;
       regions[region_count - 1].state_sequence = NULL;
       regions[region_count - 1].state_count = 0;
@@ -409,6 +463,10 @@ region_t* extract_requests_dns(unsigned char* buf, unsigned int buf_size, unsign
         regions[region_count - 1].end_byte = cur_end;
         regions[region_count - 1].state_sequence = NULL;
         regions[region_count - 1].state_count = 0;
+		
+		//added null assignment for header if packet doesn't match DNS standards
+		emptyHeader(&regions[region_count - 1].r_header); 
+		emptyQuery(&regions[region_count - 1].r_question); 
         break;
       }
 
@@ -429,7 +487,10 @@ region_t* extract_requests_dns(unsigned char* buf, unsigned int buf_size, unsign
     regions[0].end_byte = buf_size - 1;
     regions[0].state_sequence = NULL;
     regions[0].state_count = 0;
-
+	
+	//added null assignment for header if packet doesn't match DNS standards
+	emptyHeader(&regions[0].r_header);
+	emptyQuery(&regions[0].r_question);
     region_count = 1;
   }
 
