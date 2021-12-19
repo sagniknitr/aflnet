@@ -12,7 +12,7 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
-*/
+*/ 
 
 /*
    american fuzzy lop - fuzzer code
@@ -561,6 +561,229 @@ u8* choose_source_region(u32 *out_len) {
   }
 
   return out;
+}
+
+// added function to choose header data for field-level mutations 
+u8* choose_source_header(u32 *out_len) {
+  u8 *out = NULL;
+  *out_len = 0;
+  struct queue_entry *q = queue;
+
+  //randomly select a seed
+  u32 index = UR(queued_paths);
+  while (index != 0) {
+    q = q->next;
+    index--;
+  }
+
+  //randomly select a region in the selected seed
+  if (q->region_count) {
+    u32 reg_index = UR(q->region_count);
+        u32 len = q->regions[reg_index].r_header.hEnd - q->regions[reg_index].r_header.hStart + 1;
+	while(len == 0)
+	{
+		reg_index = UR(q->region_count);
+		len = q->regions[reg_index].r_header.hEnd - q->regions[reg_index].r_header.hStart+1;
+	}            
+
+    if (len <= MAX_FILE) {
+		out = (u8 *)ck_alloc(len);
+		if (out == NULL) PFATAL("Unable allocate a memory region to store header");
+		*out_len = len;
+      //Read header data into memory. */
+		FILE *fp = fopen(q->fname, "rb");
+		fseek(fp, q->regions[reg_index].start_byte, SEEK_CUR);
+		fread(out, 1, len, fp);
+		fclose(fp);
+    }
+  }
+
+  return out;
+}
+// added function to return warped header for field-level mutations 
+
+u8* warp_header(u32 *out_len) 
+{
+	//u32 src_header_len = 0;
+    //u8* src_header = choose_source_header(&src_header_len);
+   u8 *src_header = NULL;
+  *out_len = 0;
+  struct queue_entry *q = queue;
+
+  //randomly select a seed
+  u32 index = UR(queued_paths);
+  while (index != 0) {
+    q = q->next;
+    index--;
+  }
+
+  //randomly select a region in the selected seed
+  if (q->region_count) {
+    u32 reg_index = UR(q->region_count);
+        u32 len = q->regions[reg_index].r_header.hEnd - q->regions[reg_index].r_header.hStart+1;
+	while(len == 0)
+	{
+		reg_index = UR(q->region_count);
+		len = q->regions[reg_index].r_header.hEnd - q->regions[reg_index].r_header.hStart+1;
+	}
+   if (len <= MAX_FILE) {
+			src_header = (u8 *)ck_alloc(len);
+			if (src_header == NULL) PFATAL("Unable allocate a memory region to store header");
+			*out_len = len;
+      //Read header data into memory. */
+		FILE *fp = fopen(q->fname, "rb");
+		fseek(fp, q->regions[reg_index].start_byte, SEEK_CUR);
+		fread(src_header, 1, len, fp);
+		fclose(fp);
+			
+			switch (UR(6))
+			{
+				//warp ID note:maybe change first 2 to 16
+				case 0:
+					src_header[q->regions[reg_index].r_header.qdCount] = interesting_8[UR(sizeof(interesting_8))];
+				
+				//warp short fields
+				case 1:
+					src_header[q->regions[reg_index].r_header.qdCount] = interesting_8[UR(sizeof(interesting_8))];
+				
+				//warp QDCOUNT
+				case 2:
+					src_header[q->regions[reg_index].r_header.qdCount] = interesting_8[UR(sizeof(interesting_8))];
+
+				//warp ANCOUNT
+				case 3:
+					src_header[q->regions[reg_index].r_header.anCount] = interesting_8[UR(sizeof(interesting_8))];
+
+				//warp NSCOUNT
+				case 4:
+					src_header[q->regions[reg_index].r_header.nsCount] = interesting_8[UR(sizeof(interesting_8))];
+
+				//warp ARCOUNT
+				case 5:
+					src_header[q->regions[reg_index].r_header.arCount] = interesting_8[UR(sizeof(interesting_8))];
+
+			}
+		}
+	
+	}
+	return src_header;
+}
+// added function to choose query data for field-level mutations 
+u8* choose_source_query(u32 *out_len) {
+  u8 *out = NULL;
+  *out_len = 0;
+  struct queue_entry *q = queue;
+
+  //randomly select a seed
+  u32 index = UR(queued_paths);
+  while (index != 0) {
+    q = q->next;
+    index--;
+  }
+
+  //randomly select a region in the selected seed
+  if (q->region_count) {
+    u32 reg_index = UR(q->region_count);
+        u32 len = q->regions[reg_index].r_question.qEnd - q->regions[reg_index].r_question.qStart+1;
+	while(len == 0)
+	{
+		reg_index = UR(q->region_count);
+		len = q->regions[reg_index].r_question.qEnd- q->regions[reg_index].r_question.qStart+1;
+	}
+    if (len <= MAX_FILE) {
+      out = (u8 *)ck_alloc(len);
+      if (out == NULL) PFATAL("Unable allocate a memory region to store query");
+      *out_len = len;
+      //Read query data into memory. */
+      FILE *fp = fopen(q->fname, "rb");
+      fseek(fp, ((q->regions[reg_index].start_byte) + q->regions[reg_index].r_question.qStart), SEEK_CUR);
+      fread(out, 1, len, fp);
+      fclose(fp);
+    }
+  }
+
+  return out;
+}
+
+// added function to return warped query for field-level mutations 
+
+u8* warp_query(u32 *out_len) 
+{
+
+   u8 *src_query = NULL;
+  *out_len = 0;
+  struct queue_entry *q = queue;
+
+  //randomly select a seed
+  u32 index = UR(queued_paths);
+  while (index != 0) {
+    q = q->next;
+    index--;
+  }
+
+  //randomly select a region in the selected seed
+  if (q->region_count) {
+    u32 reg_index = UR(q->region_count);
+        u32 len = q->regions[reg_index].r_question.qEnd - q->regions[reg_index].r_question.qStart;
+	while(len <= 0 || len < q->regions[reg_index].r_question.qLength)
+	{
+		reg_index = UR(q->region_count);
+		len = q->regions[reg_index].r_question.qEnd - q->regions[reg_index].r_question.qStart+1;
+	}
+   if (len <= MAX_FILE) {
+			src_query = (u8 *)ck_alloc(len);
+			if (src_query == NULL) PFATAL("Unable allocate a memory region to store header");
+			*out_len = len;
+      //Read query data into memory. */
+		FILE *fp = fopen(q->fname, "rb");
+		fseek(fp, (q->regions[reg_index].r_question.qStart), SEEK_CUR);
+		fread(src_query, 1, len, fp);
+		fclose(fp);
+			
+			switch (UR(3))
+			{
+				//warp ID note:maybe change first 2 to 16
+				case 0: 
+					if(q->regions[reg_index].r_question.qLength < len)
+						break;
+					else
+					{
+						int nameByte = UR(q->regions[reg_index].r_question.qLength - 4);
+						src_query[q->regions[reg_index].r_question.qName + nameByte] = interesting_8[UR(sizeof(interesting_8))];
+						//printf("\n QNAME: %d, len: %d", q->regions[reg_index].r_question.qName, len);
+						break;
+					}
+					//printf("\n QNAME: %d, len: %d", q->regions[reg_index].r_question.qName, len);
+
+				
+				//warp short fields
+				case 1:
+					if(q->regions[reg_index].r_question.qLength < len)
+						break;
+					else
+					{
+						int typeByte = UR(2);
+						src_query[q->regions[reg_index].r_question.qType+typeByte] = interesting_8[UR(sizeof(interesting_8))];
+
+						break;
+					}
+				//warp QDCOUNT
+				case 2:
+					if(q->regions[reg_index].r_question.qLength < len)
+						break;
+					else
+					{
+						int classByte = UR(2);
+						//printf("\n QCLASS: %d, len: %d", q->regions[reg_index].r_question.qClass, len);
+						src_query[q->regions[reg_index].r_question.qClass + classByte] = interesting_8[UR(sizeof(interesting_8))];
+						break;
+					}
+
+			}
+		}
+	
+	}
+	return src_query;
 }
 
 /* Update #fuzzs visiting a specific state */
@@ -6993,7 +7216,7 @@ havoc_stage:
 
     for (i = 0; i < use_stacking; i++) {
 
-      switch (UR(15 + 2 + (region_level_mutation ? 4 : 0))) {
+      switch (UR(15 + 2 + (region_level_mutation ? 8: 0))) {
 
         case 0:
 
@@ -7440,7 +7663,107 @@ havoc_stage:
             temp_len += temp_len;
             break;
           }
+          
+		//swap header of current region with random header
+		case 21:
+		{
+			u32 src_header_len = 0;
+            u8* src_header = choose_source_header(&src_header_len);
+            if (src_header == NULL) break;
+			
+			if(temp_len < src_header_len)
+			{
+				ck_free(src_header);
+				break;
+			}
+				
+			u8* new_buf = ck_alloc_nozero(temp_len);
+			memcpy(new_buf, src_header, src_header_len);
+			u8* temp_body = out_buf + src_header_len;
+			u32 temp_body_len = temp_len - src_header_len;
+			memcpy(&new_buf[src_header_len], temp_body, temp_body_len);
+			ck_free(out_buf);
+			ck_free(src_header);
+			out_buf = new_buf;
+			temp_len = temp_body_len + src_header_len;
+			break;
+		}
+		
+		//swap query of current region with random query
+		case 22:
+		{
+			u32 src_query_len = 0;
+            u8* src_query = choose_source_query(&src_query_len);
+            if (src_query == NULL) break;
+			
+			if(temp_len < src_query_len)
+			{
+				ck_free(src_query);
+				break;
+			}
+			
+			u8* new_buf = ck_alloc_nozero(temp_len);
+			u32 temp_head_len = temp_len - src_query_len;
+			
+			memcpy(new_buf, out_buf, temp_head_len);
+			memcpy(&new_buf[temp_head_len], src_query, src_query_len);
+			ck_free(out_buf);
+			ck_free(src_query);
+			out_buf = new_buf;
+			temp_len = temp_head_len + src_query_len;
+			break;
+		}
+		
+		//give current packet mutated header
+		case 23:
+		{
+			u32 src_header_len = 0;
+            u8* src_header = warp_header(&src_header_len);
+            if (src_header == NULL) break;
+			
+			if(temp_len < src_header_len)
+			{
+				ck_free(src_header);
+				break;
+			}
+				
+			u8* new_buf = ck_alloc_nozero(temp_len);
+			memcpy(new_buf, src_header, src_header_len);
+			u8* temp_body = out_buf + src_header_len;
+			u32 temp_body_len = temp_len - src_header_len;
+			memcpy(&new_buf[src_header_len], temp_body, temp_body_len);
+			ck_free(out_buf);
+			ck_free(src_header);
+			out_buf = new_buf;
+			temp_len = temp_body_len + src_header_len;
+			break;
+		}
 
+		//warp query
+		case 24:
+		{
+			u32 src_query_len = 0;
+            u8* src_query = warp_query(&src_query_len);
+            if (src_query == NULL) break;
+			
+			if(temp_len < src_query_len)
+			{
+				ck_free(src_query);
+				break;
+			}
+			
+			u8* new_buf = ck_alloc_nozero(temp_len);
+			u32 temp_head_len = temp_len - src_query_len;
+			
+			memcpy(new_buf, out_buf, temp_head_len);
+			memcpy(&new_buf[temp_head_len], src_query, src_query_len);
+			ck_free(out_buf);
+			ck_free(src_query);
+			out_buf = new_buf;
+			temp_len = temp_head_len + src_query_len;
+			break;
+		}
+		
       }
 
     }
