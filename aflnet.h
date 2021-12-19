@@ -6,12 +6,53 @@
 #include <arpa/inet.h>
 #include <poll.h>
 
+typedef struct 
+{
+	int hStart; //first byte of header
+	int hEnd; //last byte of header
+	char fuzzed; //flag for is fuzzed
+	int id; //ID field
+	int shortFields; //2 byte section of header containing fields QR, OpCode, AA, TC, RD, RA, Z, and RCode
+	int qdCount; //number of questions
+	int anCount; //number of answers
+	int nsCount; //number of authority records
+	int arCount; //number of additional records
+}header;
+
+typedef struct 
+{
+	int qStart; //first byte of query
+	int qEnd; //last byte of query
+	int qLength; // length of query
+	char fuzzed; //flag for is fuzzed
+	int qName; //URL being queried
+	int qType; //DNS record type
+	int qClass; //class being queried
+}query;
+
+typedef struct 
+{
+	int rStart; //first byte of response
+	int rEnd; //last byte of response
+	char fuzzed; //flag for is fuzzed
+	char *aName; //URL response
+	char *aType; //DNS record type
+	char *aClass; //class being answered for
+	char *ttl; //time to live for this response
+	char *rdlength; //length in bytes of rddata
+	char *rddata; //response data of IP address
+}response;
+
+
 typedef struct {
   int start_byte;                 /* The start byte, negative if unknown. */
   int end_byte;                   /* The last byte, negative if unknown. */
   char modifiable;                /* The modifiable flag. */
   unsigned int *state_sequence;   /* The annotation keeping the state feedback. */
   unsigned int state_count;       /* Number of states stored in state_sequence. */
+  header r_header;				//header of region
+  query r_question;			//question of region
+  //response r_answer;				//answer of region
 } region_t;
 
 typedef struct {
